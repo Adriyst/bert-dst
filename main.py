@@ -5,7 +5,10 @@ import numpy as np
 import os
 import sys
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
+import tensorflow.contrib as tfcont
 
 import dataset_dstc2
 import dataset_sim
@@ -15,7 +18,7 @@ flags = tf.flags
 FLAGS = flags.FLAGS
 
 # Directory of bert, cloned from github.com/google-research/bert
-sys.path.append("/path/to/bert")
+sys.path.append("/usr/local/Development/bert")
 
 import modeling
 import optimization
@@ -325,7 +328,7 @@ def file_based_input_fn_builder(input_file, seq_length, is_training,
       d = d.shuffle(buffer_size=100)
 
     d = d.apply(
-        tf.contrib.data.map_and_batch(
+        tfcont.data.map_and_batch(
             lambda record: _decode_record(record, name_to_features),
             batch_size=batch_size,
             drop_remainder=drop_remainder))
@@ -510,7 +513,7 @@ def model_fn_builder(bert_config, slot_list, num_class_labels, init_checkpoint,
       train_op = optimization.create_optimizer(
           total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
 
-      output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+      output_spec = tfcont.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
           train_op=train_op,
@@ -572,7 +575,7 @@ def model_fn_builder(bert_config, slot_list, num_class_labels, init_checkpoint,
 
       eval_metrics = (metric_fn,
                       [per_slot_per_example_loss, features, per_slot_class_logits, per_slot_start_logits, per_slot_end_logits, is_real_example])
-      output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+      output_spec = tfcont.tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
           eval_metrics=eval_metrics,
@@ -596,7 +599,7 @@ def model_fn_builder(bert_config, slot_list, num_class_labels, init_checkpoint,
           predictions_dict["end_pos_%s" % slot] = features["end_pos_%s" % slot]
           predictions_dict["input_ids_%s" % slot] = features["input_ids"]
 
-      output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+      output_spec = tfcont.tpu.TPUEstimatorSpec(
           mode=mode,
           predictions=predictions_dict,
           scaffold_fn=scaffold_fn)
@@ -650,17 +653,17 @@ def main(_):
 
   tpu_cluster_resolver = None
   if FLAGS.use_tpu and FLAGS.tpu_name:
-    tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
+    tpu_cluster_resolver = tfcont.cluster_resolver.TPUClusterResolver(
         FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
 
-  is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
-  run_config = tf.contrib.tpu.RunConfig(
+  is_per_host = tfcont.tpu.InputPipelineConfig.PER_HOST_V2
+  run_config = tfcont.tpu.RunConfig(
       cluster=tpu_cluster_resolver,
       master=FLAGS.master,
       model_dir=FLAGS.output_dir,
       save_checkpoints_steps=FLAGS.save_checkpoints_steps,
       keep_checkpoint_max=None,
-      tpu_config=tf.contrib.tpu.TPUConfig(
+      tpu_config=tfcont.tpu.TPUConfig(
           iterations_per_loop=FLAGS.iterations_per_loop,
           num_shards=FLAGS.num_tpu_cores,
           per_host_input_for_training=is_per_host))
@@ -687,7 +690,7 @@ def main(_):
 
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
-  estimator = tf.contrib.tpu.TPUEstimator(
+  estimator = tfcont.tpu.TPUEstimator(
       use_tpu=FLAGS.use_tpu,
       model_fn=model_fn,
       config=run_config,
